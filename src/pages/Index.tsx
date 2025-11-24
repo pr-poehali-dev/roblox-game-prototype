@@ -4,6 +4,10 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,10 +38,51 @@ interface Character {
   skills: Skill[];
 }
 
+interface GuildMember {
+  id: string;
+  name: string;
+  class: CharacterClass;
+  level: number;
+  role: 'leader' | 'officer' | 'member';
+  contribution: number;
+  online: boolean;
+}
+
+interface Guild {
+  id: string;
+  name: string;
+  tag: string;
+  level: number;
+  exp: number;
+  maxExp: number;
+  members: GuildMember[];
+  maxMembers: number;
+  description: string;
+}
+
+interface GuildQuest {
+  id: string;
+  name: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard' | 'legendary';
+  requiredMembers: number;
+  reward: {
+    exp: number;
+    gold: number;
+  };
+  progress: number;
+  maxProgress: number;
+}
+
 const Index = () => {
   const { toast } = useToast();
   const [gameState, setGameState] = useState<'selection' | 'game'>('selection');
   const [character, setCharacter] = useState<Character | null>(null);
+  const [guild, setGuild] = useState<Guild | null>(null);
+  const [guildName, setGuildName] = useState('');
+  const [guildTag, setGuildTag] = useState('');
+  const [createGuildOpen, setCreateGuildOpen] = useState(false);
+  const [invitePlayerName, setInvitePlayerName] = useState('');
 
   const classes = [
     {
@@ -183,6 +228,141 @@ const Index = () => {
     }
   };
 
+  const createGuild = () => {
+    if (!guildName || !guildTag || !character) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все поля',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const selectedClass = classes.find(c => c.id === character.class);
+    const newGuild: Guild = {
+      id: '1',
+      name: guildName,
+      tag: guildTag,
+      level: 1,
+      exp: 0,
+      maxExp: 1000,
+      maxMembers: 20,
+      description: 'Новая гильдия',
+      members: [
+        {
+          id: '1',
+          name: 'Вы',
+          class: character.class,
+          level: character.level,
+          role: 'leader',
+          contribution: 0,
+          online: true
+        }
+      ]
+    };
+
+    setGuild(newGuild);
+    setCreateGuildOpen(false);
+    setGuildName('');
+    setGuildTag('');
+
+    toast({
+      title: '🎉 Гильдия создана!',
+      description: `Добро пожаловать в [${guildTag}] ${guildName}`
+    });
+  };
+
+  const invitePlayer = () => {
+    if (!invitePlayerName || !guild) return;
+
+    const randomClass: CharacterClass = ['warrior', 'mage', 'archer'][Math.floor(Math.random() * 3)] as CharacterClass;
+    const newMember: GuildMember = {
+      id: String(guild.members.length + 1),
+      name: invitePlayerName,
+      class: randomClass,
+      level: Math.floor(Math.random() * 10) + 1,
+      role: 'member',
+      contribution: 0,
+      online: Math.random() > 0.5
+    };
+
+    setGuild({
+      ...guild,
+      members: [...guild.members, newMember]
+    });
+
+    setInvitePlayerName('');
+
+    toast({
+      title: 'Игрок приглашён',
+      description: `${invitePlayerName} присоединился к гильдии`
+    });
+  };
+
+  const completeGuildQuest = (questReward: { exp: number; gold: number }) => {
+    if (!guild) return;
+
+    const newExp = guild.exp + questReward.exp;
+    const levelUp = newExp >= guild.maxExp;
+
+    if (levelUp) {
+      setGuild({
+        ...guild,
+        level: guild.level + 1,
+        exp: newExp - guild.maxExp,
+        maxExp: guild.maxExp + 500
+      });
+
+      toast({
+        title: '🎉 Уровень гильдии повышен!',
+        description: `Гильдия достигла ${guild.level + 1} уровня`
+      });
+    } else {
+      setGuild({
+        ...guild,
+        exp: newExp
+      });
+
+      toast({
+        title: 'Квест выполнен!',
+        description: `+${questReward.exp} опыта гильдии, +${questReward.gold} золота`
+      });
+    }
+  };
+
+  const guildQuests: GuildQuest[] = [
+    {
+      id: '1',
+      name: 'Зачистка подземелья',
+      description: 'Победите 50 монстров в тёмном подземелье',
+      difficulty: 'easy',
+      requiredMembers: 2,
+      reward: { exp: 200, gold: 500 },
+      progress: 0,
+      maxProgress: 50
+    },
+    {
+      id: '2',
+      name: 'Охота на дракона',
+      description: 'Сразитесь с древним драконом в его логове',
+      difficulty: 'hard',
+      requiredMembers: 5,
+      reward: { exp: 800, gold: 2000 },
+      progress: 0,
+      maxProgress: 1
+    },
+    {
+      id: '3',
+      name: 'Турнир чемпионов',
+      description: 'Победите в PvP турнире против других гильдий',
+      difficulty: 'legendary',
+      requiredMembers: 10,
+      reward: { exp: 2000, gold: 5000 },
+      progress: 0,
+      maxProgress: 10
+    }
+  ];
+
   if (gameState === 'selection') {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-background/80">
@@ -297,7 +477,7 @@ const Index = () => {
         </div>
 
         <Tabs defaultValue="stats" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="stats">
               <Icon name="BarChart3" size={16} className="mr-2" />
               Характеристики
@@ -305,6 +485,10 @@ const Index = () => {
             <TabsTrigger value="skills">
               <Icon name="Zap" size={16} className="mr-2" />
               Навыки
+            </TabsTrigger>
+            <TabsTrigger value="guild">
+              <Icon name="Users" size={16} className="mr-2" />
+              Гильдия
             </TabsTrigger>
             <TabsTrigger value="training">
               <Icon name="Target" size={16} className="mr-2" />
@@ -396,6 +580,233 @@ const Index = () => {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="guild">
+            {!guild ? (
+              <Card className="p-8 text-center">
+                <div className="max-w-md mx-auto">
+                  <div className="w-24 h-24 mx-auto mb-6 bg-card rounded-full flex items-center justify-center magic-glow">
+                    <Icon name="Users" size={48} className="text-primary" />
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold mb-4">Создайте свою гильдию</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Объединяйтесь с друзьями для совместного прохождения контента
+                  </p>
+
+                  <Dialog open={createGuildOpen} onOpenChange={setCreateGuildOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="lg" className="magic-glow">
+                        <Icon name="Plus" size={20} className="mr-2" />
+                        Создать гильдию
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Создание гильдии</DialogTitle>
+                        <DialogDescription>
+                          Придумайте название и тег для вашей гильдии
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Название гильдии</label>
+                          <Input
+                            placeholder="Легенды Арены"
+                            value={guildName}
+                            onChange={(e) => setGuildName(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Тег гильдии</label>
+                          <Input
+                            placeholder="LEG"
+                            maxLength={4}
+                            value={guildTag}
+                            onChange={(e) => setGuildTag(e.target.value.toUpperCase())}
+                          />
+                        </div>
+                        <Button onClick={createGuild} className="w-full">
+                          Создать
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                <Card className="p-6 border-2 border-primary/30">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-3xl font-bold">
+                        <span className="text-gold">[{guild.tag}]</span> {guild.name}
+                      </h2>
+                      <div className="flex items-center gap-4 mt-2">
+                        <Badge variant="secondary" className="text-base">
+                          Уровень {guild.level}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {guild.members.length} / {guild.maxMembers} участников
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Опыт гильдии</span>
+                      <span className="text-muted-foreground">
+                        {guild.exp} / {guild.maxExp}
+                      </span>
+                    </div>
+                    <Progress value={(guild.exp / guild.maxExp) * 100} className="h-3" />
+                  </div>
+                </Card>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  <Card className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-bold flex items-center gap-2">
+                        <Icon name="Users" size={20} />
+                        Участники
+                      </h3>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline">
+                            <Icon name="UserPlus" size={16} className="mr-2" />
+                            Пригласить
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Пригласить игрока</DialogTitle>
+                            <DialogDescription>
+                              Введите имя игрока для приглашения в гильдию
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <Input
+                              placeholder="Имя игрока"
+                              value={invitePlayerName}
+                              onChange={(e) => setInvitePlayerName(e.target.value)}
+                            />
+                            <Button onClick={invitePlayer} className="w-full">
+                              Отправить приглашение
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {guild.members.map((member) => {
+                          const memberClass = classes.find(c => c.id === member.class);
+                          return (
+                            <div
+                              key={member.id}
+                              className="flex items-center gap-3 p-3 rounded-lg bg-card border hover:border-primary/50 transition-colors"
+                            >
+                              <Avatar className="border-2 border-primary/50">
+                                <AvatarFallback className="bg-primary/20">
+                                  <Icon name={memberClass?.icon || 'User'} size={20} />
+                                </AvatarFallback>
+                              </Avatar>
+                              
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold">{member.name}</span>
+                                  {member.online && (
+                                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <span>{memberClass?.name}</span>
+                                  <span>•</span>
+                                  <span>Ур. {member.level}</span>
+                                </div>
+                              </div>
+
+                              <Badge variant={member.role === 'leader' ? 'default' : 'outline'}>
+                                {member.role === 'leader' ? 'Лидер' : member.role === 'officer' ? 'Офицер' : 'Участник'}
+                              </Badge>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </Card>
+
+                  <Card className="p-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <Icon name="Scroll" size={20} />
+                      Гильдийские квесты
+                    </h3>
+
+                    <ScrollArea className="h-[300px]">
+                      <div className="space-y-3">
+                        {guildQuests.map((quest) => {
+                          const difficultyColors = {
+                            easy: 'bg-green-500/20 text-green-500 border-green-500/30',
+                            medium: 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30',
+                            hard: 'bg-orange-500/20 text-orange-500 border-orange-500/30',
+                            legendary: 'bg-purple-500/20 text-purple-500 border-purple-500/30'
+                          };
+
+                          const canStart = guild.members.filter(m => m.online).length >= quest.requiredMembers;
+
+                          return (
+                            <Card key={quest.id} className={`p-4 border-2 ${difficultyColors[quest.difficulty]}`}>
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h4 className="font-bold">{quest.name}</h4>
+                                    <Badge variant="outline" className="capitalize">
+                                      {quest.difficulty === 'easy' ? 'Лёгкий' : 
+                                       quest.difficulty === 'medium' ? 'Средний' :
+                                       quest.difficulty === 'hard' ? 'Сложный' : 'Легендарный'}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{quest.description}</p>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Icon name="Users" size={14} />
+                                  <span>Требуется: {quest.requiredMembers} игроков</span>
+                                </div>
+
+                                <div className="flex items-center gap-3 text-sm">
+                                  <span className="flex items-center gap-1">
+                                    <Icon name="Star" size={14} className="text-blue-500" />
+                                    +{quest.reward.exp} опыта
+                                  </span>
+                                  <span className="flex items-center gap-1 text-gold">
+                                    <Icon name="Coins" size={14} />
+                                    +{quest.reward.gold} золота
+                                  </span>
+                                </div>
+
+                                <Button
+                                  onClick={() => completeGuildQuest(quest.reward)}
+                                  disabled={!canStart}
+                                  size="sm"
+                                  className="w-full"
+                                >
+                                  <Icon name="Play" size={14} className="mr-2" />
+                                  Начать квест
+                                </Button>
+                              </div>
+                            </Card>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </Card>
+                </div>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="training">
